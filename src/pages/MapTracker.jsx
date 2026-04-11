@@ -1,193 +1,142 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import Map, { Marker } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { api } from '../services/mockApi';
+import * as api from '../services/api';
 import * as FiIcons from 'react-icons/fi';
-import SafeIcon from '@/common/SafeIcon';
-import BottomSheet from '../components/BottomSheet';
+import SafeIcon from '@/components/SafeIcon';
 import { toast } from '../components/Toast';
-import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '../lib/supabase';
 
-export default function MapTracker() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [device, setDevice] = useState(null);
+export default function HelperPublic() {
+  const { code } = useParams();
+  const [sessionData, setSessionData] = useState(null);
   const [viewState, setViewState] = useState(null);
-  const [lostSheetOpen, setLostSheetOpen] = useState(false);
-  const [lostDuration, setLostDuration] = useState(24);
-  const [codeInfo, setCodeInfo] = useState(null);
+  const [error, setError] = useState('');
+  const mapRef = useRef(null);
+  const [mapError, setMapError] = useState(false);
 
   useEffect(() => {
-  const fetchInitialLocation = async () => {
-    const data = await api.getDeviceLocation(id);
-    if (data) {
-      setDevice(data);
-      if (!viewState) {
-        setViewState({ longitude: data.lng, latitude: data.lat, zoom: 15 });
+    if (mapRef.current) {
+      setTimeout(() => mapRef.current.resize(), 100);
+    }
+  }, [viewState]);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const data = await api.getLostSession(code);
+        setSessionData(data);
+        if (!viewState) {
+          setViewState({ longitude: data.location.lng, latitude: data.location.lat, zoom: 16 });
+        }
+      } catch (err) {
+        setError('Tracking link is invalid or has expired.');
       }
+    };
+    fetchSession();
+    const interval = setInterval(fetchSession, 5000);
+    return () => clearInterval(interval);
+  }, [code]);
+
+  const handleSeeBag = () => {
+    if (navigator.geolocation) {
+      toast('Locating you...');
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          await api.reportSighting(sessionData.session.id, pos.coords.latitude, pos.coords.longitude, "Helper spotted the bag!");
+          toast('Report sent! Owner notified.');
+        },
+        () => {
+          api.reportSighting(sessionData.session.id, viewState.latitude, viewState.longitude, "Helper spotted the bag!");
+          toast('Report sent! Owner notified.');
+        }
+      );
+    } else {
+      toast('Geolocation not supported', 'error');
     }
   };
-  fetchInitialLocation();
 
-  // Subscribe to realtime changes for this device
-  const channel = supabase
-    .channel(`device-${id}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'devices',
-        filter: `id=eq.${id}`
-      },
-      (payload) => {
-        const updatedDevice = payload.new;
-        setDevice(updatedDevice);
-        // Optionally pan map to new location
-        setViewState(prev => ({
-          ...prev,
-          longitude: updatedDevice.lng,
-          latitude: updatedDevice.lat
-        }));
+  const handleRing = async () => {
+    await api.ringBuzzer(sessionData.session.device_id);
+    toast('Buzzer ringing...');
+  };
+
+  if (error) {
+    return (
+      <div className="flex-1 bg-white flex flex-col items-center justify-center p-8 text-center h-full">
+        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-3xl mb-4">
+          <SafeIcon icon={FiIcons.FiAlertCircle} />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Session Ended</h2>
+        <p className="text-gray-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (!sessionData || !viewState) return (
+    <div className="flex-1 bg-gray-100 flex items-center justify-center">
+      <div className="animate-spin text-brand-500 text-3xl"><SafeIcon icon={FiIcons.FiLoader} /></div>
+    </div>
+  );
+
+  const mapStyle = mapError || !import.meta.env.VITE_MAPBOX_TOKEN
+    ? {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [{
+          id: 'osm-tiles',
+          type: 'raster',
+          source: 'osm-tiles',
+          minzoom: 0,
+          maxzoom: 19
+        }]
       }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [id]);
-
-  const handleRingBuzzer = async () => {
-    await api.ringBuzzer(id);
-    toast('Buzzer command sent!');
-  };
-
-  const handleActivateLostMode = async () => {
-    const res = await api.startLostMode(id, lostDuration);
-    setCodeInfo(res.code);
-    toast('Lost mode activated!', 'error');
-    setLostSheetOpen(false);
-    // Refresh device
-    const data = await api.getLocation(id);
-    setDevice(data);
-  };
-
-  const handleDeactivateLostMode = async () => {
-    await api.endLostMode(id);
-    toast('Lost mode deactivated');
-    setCodeInfo(null);
-    const data = await api.getLocation(id);
-    setDevice(data);
-  };
-
-  const shareCode = () => {
-    const url = `${window.location.origin}/#/track/${codeInfo}`;
-    navigator.clipboard.writeText(url);
-    toast('Tracking link copied to clipboard!');
-  };
-
-  if (!device || !viewState) return <div className="flex-1 bg-gray-100 animate-pulse" />;
-
-  const isLost = device.status === 'lost';
+    : 'mapbox://styles/mapbox/light-v10';
 
   return (
     <div className="flex-1 relative h-full w-full bg-gray-100">
       <Map
+        ref={mapRef}
         {...viewState}
         onMove={evt => setViewState(evt.viewState)}
-        mapStyle="mapbox://styles/mapbox/streets-v11"
+        mapStyle={mapStyle}
         mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+        onError={() => setMapError(true)}
         style={{ width: '100%', height: '100%' }}
       >
-        <Marker longitude={device.lng} latitude={device.lat}>
+        <Marker longitude={sessionData.location.lng} latitude={sessionData.location.lat}>
           <div className="relative">
-            <div className={`absolute -inset-4 rounded-full opacity-20 animate-ping ${isLost ? 'bg-red-500' : 'bg-brand-500'}`} />
-            <div className={`w-8 h-8 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white relative z-10 transition-colors ${
-              isLost ? 'bg-red-500' : 'bg-brand-500'
-            }`}>
-              <SafeIcon icon={FiIcons.FiBriefcase} className="text-xs" />
+            <div className="absolute -inset-4 rounded-full opacity-20 animate-ping bg-red-500" />
+            <div className="w-10 h-10 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white relative z-10 bg-red-500">
+              <SafeIcon icon={FiIcons.FiBriefcase} className="text-lg" />
             </div>
           </div>
         </Marker>
       </Map>
 
-      {/* Top Bar Overlay */}
-      <div className="absolute top-0 left-0 w-full p-6 pt-12 bg-gradient-to-b from-black/50 to-transparent pointer-events-none flex justify-between items-start">
-        <button onClick={() => navigate('/')} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg text-gray-800 pointer-events-auto">
-          <SafeIcon icon={FiIcons.FiArrowLeft} />
-        </button>
-        <div className="bg-white px-4 py-2 rounded-full shadow-lg pointer-events-auto flex flex-col items-end">
-          <span className="text-sm font-bold">{device.name}</span>
-          <span className="text-[10px] text-gray-500">Updated {formatDistanceToNow(device.lastUpdated)} ago</span>
+      <div className="absolute top-0 left-0 w-full p-6 pt-12 bg-gradient-to-b from-black/60 to-transparent flex flex-col items-center pointer-events-none">
+        <div className="bg-red-500 text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg mb-2">
+          Lost Item Tracker
         </div>
+        <p className="text-white text-sm font-medium text-center shadow-sm">Help the owner find this bag</p>
       </div>
 
-      {/* Bottom Action Cards */}
-      <div className="absolute bottom-6 left-0 w-full px-4 pointer-events-none">
-        <div className="bg-white rounded-3xl p-5 shadow-2xl pointer-events-auto space-y-4">
-          {isLost && codeInfo && (
-            <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex flex-col items-center">
-              <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Lost Mode Active</span>
-              <div className="text-2xl font-black font-mono tracking-widest text-gray-900 my-2">{codeInfo}</div>
-              <button onClick={shareCode} className="text-brand-500 text-sm font-semibold flex items-center">
-                <SafeIcon icon={FiIcons.FiShare2} className="mr-2" /> Share Tracking Link
-              </button>
-            </div>
-          )}
-
-          <div className="flex space-x-3">
-            <button 
-              onClick={handleRingBuzzer}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center"
-            >
-              <SafeIcon icon={FiIcons.FiBell} className="mr-2 text-lg" /> Ring
-            </button>
-            
-            {!isLost ? (
-              <button 
-                onClick={() => setLostSheetOpen(true)}
-                className="flex-1 bg-brand-500 hover:bg-brand-600 text-white py-3.5 rounded-xl font-semibold text-sm shadow-lg shadow-brand-500/30 transition-all flex items-center justify-center"
-              >
-                <SafeIcon icon={FiIcons.FiAlertTriangle} className="mr-2 text-lg" /> Report Lost
-              </button>
-            ) : (
-              <button 
-                onClick={handleDeactivateLostMode}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3.5 rounded-xl font-semibold text-sm shadow-lg shadow-green-500/30 transition-all flex items-center justify-center"
-              >
-                <SafeIcon icon={FiIcons.FiCheckCircle} className="mr-2 text-lg" /> Bag Found
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <BottomSheet isOpen={lostSheetOpen} onClose={() => setLostSheetOpen(false)} title="Activate Lost Mode">
-        <p className="text-gray-500 text-sm mb-6">Generates a public tracking link that helpers can use to pinpoint your bag's location.</p>
-        <div className="space-y-3 mb-8">
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Duration</label>
-          <div className="grid grid-cols-4 gap-2">
-            {[6, 12, 24, 48].map(h => (
-              <button 
-                key={h}
-                onClick={() => setLostDuration(h)}
-                className={`py-3 rounded-xl text-sm font-semibold border ${lostDuration === h ? 'bg-brand-50 border-brand-500 text-brand-600' : 'bg-white border-gray-200 text-gray-600'}`}
-              >
-                {h}h
-              </button>
-            ))}
-          </div>
-        </div>
-        <button 
-          onClick={handleActivateLostMode}
-          className="w-full bg-red-500 text-white py-4 rounded-xl font-bold text-sm shadow-lg shadow-red-500/30"
-        >
-          Confirm & Get Link
+      <div className="absolute bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pb-8 space-y-4">
+        <h3 className="text-lg font-bold text-gray-900 text-center mb-6">Are you near the bag?</h3>
+        <button onClick={handleSeeBag} className="w-full bg-brand-500 text-white py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center">
+          <SafeIcon icon={FiIcons.FiEye} className="mr-2 text-xl" /> I See This Bag
         </button>
-      </BottomSheet>
+        <button onClick={handleRing} className="w-full bg-gray-100 text-gray-800 py-4 rounded-xl font-bold text-lg flex items-center justify-center">
+          <SafeIcon icon={FiIcons.FiBell} className="mr-2 text-xl" /> Ring Buzzer
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../services/mockApi';
+import * as api from '../services/api';
+// usage stays the same: api.getLocation(id)
 import * as FiIcons from 'react-icons/fi';
-import SafeIcon from '@/common/SafeIcon';
+import SafeIcon from '@/components/SafeIcon';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function History() {

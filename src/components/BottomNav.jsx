@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
-import SafeIcon from '@/common/SafeIcon';
+import SafeIcon from '@/components/SafeIcon';
 
 export default function BottomNav() {
   const location = useLocation();
