@@ -4,15 +4,16 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',   // ← This is the important line
   theme: {
     extend: {
       colors: {
         brand: {
           50: '#e3f2fd',
           100: '#bbdefb',
-          500: '#1e88e5', // Primary
+          500: '#1e88e5',
           600: '#1976d2',
-          900: '#004d40', // Secondary
+          900: '#004d40',
         }
       }
     },

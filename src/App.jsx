@@ -22,6 +22,7 @@ import Notifications from './pages/Notifications';
 import PrivacySecurity from './pages/PrivacySecurity';
 import HelpSupport from './pages/HelpSupport';
 import AddDevice from './pages/AddDevice';
+import { ThemeProvider } from './context/ThemeContext';   // ← NEW
 
 import './index.css';
 
@@ -62,17 +63,18 @@ function AppRoutes() {
     </Routes>
   );
 }
-
 export default function App() {
   return (
     <AuthProvider>
-      <HashRouter>
-        <HashRedirect />
-        <MobileContainer>
-          <ToastContainer />
-          <AppRoutes />
-        </MobileContainer>
-      </HashRouter>
+      <ThemeProvider>                     {/* ← NEW WRAPPER */}
+        <HashRouter>
+          <HashRedirect />
+          <MobileContainer>
+            <ToastContainer />
+            <AppRoutes />
+          </MobileContainer>
+        </HashRouter>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

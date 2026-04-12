@@ -7,101 +7,91 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
 import { toast } from '../components/Toast';
 
-export default function HelperPublic() {
-  const { code } = useParams();
-  const [sessionData, setSessionData] = useState(null);
-  const [viewState, setViewState] = useState(null);
+const NAIROBI_CENTER = { 
+  longitude: 36.8172, 
+  latitude: -1.2864, 
+  zoom: 12 
+};
+
+export default function MapTracker() {
+  const { id } = useParams();
+  const [device, setDevice] = useState(null);
+  const [viewState, setViewState] = useState(NAIROBI_CENTER);
   const [error, setError] = useState('');
-  const mapRef = useRef(null);
   const [mapError, setMapError] = useState(false);
+  const mapRef = useRef(null);
 
   useEffect(() => {
     if (mapRef.current) {
-      setTimeout(() => mapRef.current.resize(), 100);
+      setTimeout(() => mapRef.current.resize(), 150);
     }
   }, [viewState]);
 
   useEffect(() => {
-    const fetchSession = async () => {
+    if (!id) {
+      setError('Invalid tracker ID');
+      return;
+    }
+
+    const fetchDevice = async () => {
       try {
-        const data = await api.getLostSession(code);
-        setSessionData(data);
-        if (!viewState) {
-          setViewState({ longitude: data.location.lng, latitude: data.location.lat, zoom: 16 });
+        const data = await api.getDeviceLocation(id);
+        setDevice(data);
+
+        if (data.lat && data.lng && (data.lat !== 0 || data.lng !== 0)) {
+          setViewState({
+            longitude: data.lng,
+            latitude: data.lat,
+            zoom: 17, // Precise tracking zoom
+          });
         }
+        setError('');
       } catch (err) {
-        setError('Tracking link is invalid or has expired.');
+        setError('Waiting for first location update... Centered on Nairobi.');
       }
     };
-    fetchSession();
-    const interval = setInterval(fetchSession, 5000);
+
+    fetchDevice();
+    const interval = setInterval(fetchDevice, 4000);
     return () => clearInterval(interval);
-  }, [code]);
+  }, [id]);
 
-  const handleSeeBag = () => {
-    if (navigator.geolocation) {
-      toast('Locating you...');
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          await api.reportSighting(sessionData.session.id, pos.coords.latitude, pos.coords.longitude, "Helper spotted the bag!");
-          toast('Report sent! Owner notified.');
-        },
-        () => {
-          api.reportSighting(sessionData.session.id, viewState.latitude, viewState.longitude, "Helper spotted the bag!");
-          toast('Report sent! Owner notified.');
-        }
-      );
-    } else {
-      toast('Geolocation not supported', 'error');
-    }
-  };
-
-  const handleRing = async () => {
-    await api.ringBuzzer(sessionData.session.device_id);
-    toast('Buzzer ringing...');
-  };
-
-  if (error) {
+  if (error && !device) {
     return (
       <div className="flex-1 bg-white flex flex-col items-center justify-center p-8 text-center h-full">
-        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-3xl mb-4">
-          <SafeIcon icon={FiIcons.FiAlertCircle} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Session Ended</h2>
+        <SafeIcon icon={FiIcons.FiAlertCircle} className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-xl font-bold text-gray-900">Tracking Error</h2>
         <p className="text-gray-500">{error}</p>
       </div>
     );
   }
 
-  if (!sessionData || !viewState) return (
-    <div className="flex-1 bg-gray-100 flex items-center justify-center">
-      <div className="animate-spin text-brand-500 text-3xl"><SafeIcon icon={FiIcons.FiLoader} /></div>
-    </div>
-  );
+  if (!device) {
+    return (
+      <div className="flex-1 bg-gray-100 flex items-center justify-center h-full">
+        <SafeIcon icon={FiIcons.FiLoader} className="animate-spin text-4xl text-brand-500" />
+      </div>
+    );
+  }
 
   const mapStyle = mapError || !import.meta.env.VITE_MAPBOX_TOKEN
     ? {
         version: 8,
         sources: {
-          'osm-tiles': {
+          'osm': {
             type: 'raster',
             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution: '© OpenStreetMap contributors'
+            tileSize: 256
           }
         },
-        layers: [{
-          id: 'osm-tiles',
-          type: 'raster',
-          source: 'osm-tiles',
-          minzoom: 0,
-          maxzoom: 19
-        }]
+        layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
       }
-    : 'mapbox://styles/mapbox/light-v10';
+    : 'mapbox://styles/mapbox/streets-v12'; // Premium aesthetic
+
+  const isLost = device.status === 'lost';
 
   return (
-    <div className="flex-1 relative h-full w-full bg-gray-100">
+    <div className="flex-1 relative h-full w-full bg-gray-100 overflow-hidden">
       <Map
         ref={mapRef}
         {...viewState}
@@ -110,32 +100,36 @@ export default function HelperPublic() {
         mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
         onError={() => setMapError(true)}
         style={{ width: '100%', height: '100%' }}
+        attributionControl={false}
       >
-        <Marker longitude={sessionData.location.lng} latitude={sessionData.location.lat}>
-          <div className="relative">
-            <div className="absolute -inset-4 rounded-full opacity-20 animate-ping bg-red-500" />
-            <div className="w-10 h-10 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white relative z-10 bg-red-500">
-              <SafeIcon icon={FiIcons.FiBriefcase} className="text-lg" />
+        {device.lat && device.lng && (device.lat !== 0 || device.lng !== 0) && (
+          <Marker longitude={device.lng} latitude={device.lat}>
+            <div className="relative">
+              {isLost && <div className="absolute -inset-6 rounded-full bg-red-500 opacity-20 animate-ping" />}
+              <div className={`w-11 h-11 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white relative z-10 ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
+                <SafeIcon icon={FiIcons.FiBriefcase} className="text-2xl" />
+              </div>
             </div>
-          </div>
-        </Marker>
+          </Marker>
+        )}
       </Map>
 
-      <div className="absolute top-0 left-0 w-full p-6 pt-12 bg-gradient-to-b from-black/60 to-transparent flex flex-col items-center pointer-events-none">
-        <div className="bg-red-500 text-white px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg mb-2">
-          Lost Item Tracker
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-50 p-6 pt-12 bg-gradient-to-b from-black/70 via-black/40 to-transparent pointer-events-none">
+        <div className="flex flex-col items-center">
+          <div className={`px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-[1px] shadow-xl mb-2 ${isLost ? 'bg-red-500' : 'bg-brand-500'} text-white`}>
+            {isLost ? 'LOST MODE • LIVE' : 'LIVE TRACKING'}
+          </div>
+          <p className="text-white text-base font-semibold drop-shadow-md">{device.name}</p>
         </div>
-        <p className="text-white text-sm font-medium text-center shadow-sm">Help the owner find this bag</p>
       </div>
 
-      <div className="absolute bottom-0 left-0 w-full bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pb-8 space-y-4">
-        <h3 className="text-lg font-bold text-gray-900 text-center mb-6">Are you near the bag?</h3>
-        <button onClick={handleSeeBag} className="w-full bg-brand-500 text-white py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center">
-          <SafeIcon icon={FiIcons.FiEye} className="mr-2 text-xl" /> I See This Bag
-        </button>
-        <button onClick={handleRing} className="w-full bg-gray-100 text-gray-800 py-4 rounded-xl font-bold text-lg flex items-center justify-center">
-          <SafeIcon icon={FiIcons.FiBell} className="mr-2 text-xl" /> Ring Buzzer
-        </button>
+      {/* Bottom status */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur px-5 py-2.5 rounded-3xl shadow-xl text-xs text-gray-700 z-50 flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full ${isLost ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+        {device.lat && device.lng && (device.lat !== 0 || device.lng !== 0) 
+          ? 'GPS Live' 
+          : 'Centered on Nairobi • Waiting for tracker update'}
       </div>
     </div>
   );

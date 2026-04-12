@@ -3,7 +3,7 @@ import * as api from '../services/api';
 // usage stays the same: api.getLocation(id)
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 export default function History() {
   const [sessions, setSessions] = useState([]);
@@ -11,7 +11,7 @@ export default function History() {
   useEffect(() => {
     const fetchHistory = async () => {
       const data = await api.getHistory();
-      setSessions(data.reverse()); // latest first
+      setSessions(data);
     };
     fetchHistory();
   }, []);
@@ -36,7 +36,9 @@ export default function History() {
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-900 text-sm">Session {s.code}</h4>
-                    <p className="text-xs text-gray-400">{formatDistanceToNow(parseInt(s.id))} ago</p>
+                    <p className="text-xs text-gray-400">
+                    {formatDistanceToNow(parseISO(s.created_at), { addSuffix: true })}
+                    </p>
                   </div>
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${s.status === 'active' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
