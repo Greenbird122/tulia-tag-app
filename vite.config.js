@@ -6,14 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  },
-  server: {
-    historyApiFallback: true,
-  },
-   build: {
-    outDir: 'dist',
-    sourcemap: true
+      '@': path.resolve(__dirname, './src'),
+    },
   },
 });

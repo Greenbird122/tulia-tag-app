@@ -1,8 +1,10 @@
 // src/pages/Login.jsx
 import { useState } from 'react';
-import {Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../components/Toast';
+import * as FiIcons from 'react-icons/fi';
+import SafeIcon from '@/components/SafeIcon';
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -10,7 +12,9 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const { login, signup, googleSignIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,13 +22,9 @@ export default function Login() {
     setLoading(true);
     try {
       if (isSignUp) {
-        await signup(email, password, name);
-        toast('Account created! You can now log in.');
+        await signup(email, password);
+        toast('Account created! You can now log in.', 'success');
         setIsSignUp(false);
-        // Clear form
-        setName('');
-        setEmail('');
-        setPassword('');
       } else {
         await login(email, password);
         navigate('/');
@@ -36,43 +36,48 @@ export default function Login() {
     }
   };
 
+  const handleGoogle = async () => {
+    setGoogleLoading(true);
+    try {
+      await googleSignIn();
+      navigate('/');
+    } catch (error) {
+      toast(error.message || 'Google sign in failed', 'error');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   return (
-    <div className="flex-1 bg-white flex flex-col justify-center px-8 relative h-full">
-      {/* Brand Header */}
-      <div className="absolute top-16 left-8">
-        <div className="w-12 h-12 bg-brand-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-brand-500/30">
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-          </svg>
+    <div className="flex-1 bg-white dark:bg-gray-900 flex flex-col h-full px-8 py-8">
+      {/* Clean Brand Header */}
+      <div className="flex flex-col items-center mb-10">
+        <div className="w-16 h-16 bg-brand-500 rounded-3xl flex items-center justify-center mb-4 shadow-xl">
+          <SafeIcon icon={FiIcons.FiBriefcase} className="w-9 h-9 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Tulia Tag</h1>
-        <p className="text-gray-500 text-sm">Your bag. Your code. Your control.</p>
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Tulia Tag</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-center mt-1">Your bag. Your code. Your control.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-32 space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6 flex-1">
         {isSignUp && (
           <div>
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
-              Full Name
-            </label>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Full Name</label>
             <input
               type="text"
-              className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required={isSignUp}
             />
           </div>
         )}
 
         <div>
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
-            Email Address
-          </label>
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Email Address</label>
           <input
             type="email"
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -81,44 +86,50 @@ export default function Login() {
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
-            Password
-          </label>
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Password</label>
           <input
             type="password"
-            className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
           />
-          {isSignUp && (
-            <p className="text-xs text-gray-400 mt-1">At least 6 characters</p>
-          )}
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-brand-500 text-white rounded-xl py-4 font-semibold text-sm shadow-lg shadow-brand-500/30 hover:bg-brand-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full bg-brand-500 hover:bg-brand-600 text-white rounded-2xl py-4 font-semibold text-lg shadow-lg transition-all disabled:opacity-50"
         >
-          {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Sign In'}
+          {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
         </button>
-        
-        <Link
-          to="/forgot-password"
-          className="block text-center text-brand-500 text-sm font-medium hover:underline mt-4">
+      </form>
+
+      <div className="mt-auto pt-6">
+        <Link to="/forgot-password" className="block text-center text-brand-500 text-sm mb-6">
           Forgot your password?
         </Link>
+
         <button
           type="button"
           onClick={() => setIsSignUp(!isSignUp)}
-          className="w-full text-brand-500 text-sm font-medium hover:underline"
+          className="w-full text-brand-500 text-sm mb-8"
         >
           {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
         </button>
-      </form>
+
+        {/* Google Button */}
+        <button
+          onClick={handleGoogle}
+          disabled={googleLoading}
+          className="w-full flex items-center justify-center gap-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-2xl py-4 font-medium text-base shadow-sm"
+        >
+          <img src="https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png" alt="Google" className="w-6 h-6" />
+          {googleLoading ? 'Connecting...' : 'Sign in with Google'}
+        </button>
+      </div>
     </div>
   );
 }

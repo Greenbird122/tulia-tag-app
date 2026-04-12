@@ -1,11 +1,14 @@
 // src/services/api.js
 import { supabase } from '../lib/supabase';
 
-// ------------------- Devices -------------------
-export const getDevices = async () => {
+const RENDER_URL = import.meta.env.VITE_RENDER_API_URL || '';
+
+// ==================== DEVICES ====================
+export const getDevices = async (ownerId) => {
   const { data, error } = await supabase
     .from('devices')
     .select('*')
+    .eq('owner_id', ownerId)
     .order('last_updated', { ascending: false });
   if (error) throw error;
   return data;
@@ -21,30 +24,35 @@ export const getDeviceLocation = async (deviceId) => {
   return data;
 };
 
-export const updateDeviceLocation = async (deviceId, lat, lng) => {
-  const { error } = await supabase
-    .from('devices')
-    .update({ lat, lng, last_updated: new Date() })
-    .eq('id', deviceId);
+export const getHistory = async (ownerId) => {
+  const { data, error } = await supabase
+    .from('lost_sessions')
+    .select('*, devices!inner(owner_id)')
+    .eq('devices.owner_id', ownerId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
+  return data;
 };
 
-// ------------------- Lost Sessions -------------------
-export const startLostMode = async (deviceId, durationHours) => {
-  // Generate a random 4-digit code
+// ==================== LOST MODE ====================
+export const startLostMode = async (deviceId, durationHours = 24) => {
   const code = `TULIA-${Math.floor(1000 + Math.random() * 9000)}`;
-  const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
 
-  // First, set device status to 'lost'
-  await supabase.from('devices').update({ status: 'lost' }).eq('id', deviceId);
+  // Update device status to lost
+  const { error: deviceError } = await supabase
+    .from('devices')
+    .update({ status: 'lost' })
+    .eq('id', deviceId);
+  if (deviceError) throw deviceError;
 
-  // Insert the session
+  // Insert lost session
   const { data, error } = await supabase
     .from('lost_sessions')
     .insert({
       device_id: deviceId,
       code,
-      expires_at: expiresAt.toISOString(),
+      expires_at: expiresAt,
       status: 'active'
     })
     .select()
@@ -55,17 +63,38 @@ export const startLostMode = async (deviceId, durationHours) => {
 };
 
 export const endLostMode = async (deviceId) => {
-  // Update device status
-  await supabase.from('devices').update({ status: 'safe' }).eq('id', deviceId);
+  const { error: deviceError } = await supabase
+    .from('devices')
+    .update({ status: 'safe' })
+    .eq('id', deviceId);
+  if (deviceError) throw deviceError;
 
-  // Mark all active sessions for this device as 'ended'
-  await supabase
+  const { error } = await supabase
     .from('lost_sessions')
     .update({ status: 'ended' })
     .eq('device_id', deviceId)
     .eq('status', 'active');
+  if (error) throw error;
 };
 
+// ==================== RING BUZZER ====================
+export const ringBuzzer = async (deviceId) => {
+  if (!RENDER_URL) throw new Error('VITE_RENDER_API_URL is not set in .env');
+
+  const res = await fetch(`${RENDER_URL}/api/ring-buzzer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || 'Failed to ring buzzer');
+  }
+  return { success: true };
+};
+
+// ==================== PUBLIC FUNCTIONS ====================
 export const getLostSession = async (code) => {
   const { data, error } = await supabase
     .from('lost_sessions')
@@ -75,53 +104,13 @@ export const getLostSession = async (code) => {
     .gt('expires_at', new Date().toISOString())
     .single();
 
-  if (error || !data) throw new Error('Invalid or expired code');
+  if (error || !data) throw new Error('Invalid or expired tracking code');
   return {
     session: data,
-    location: { lat: data.devices.lat, lng: data.devices.lng }
+    location: { lat: data.devices?.lat, lng: data.devices?.lng }
   };
 };
 
-// ------------------- Sightings -------------------
 export const reportSighting = async (sessionId, lat, lng, message) => {
-  const { error } = await supabase
-    .from('sightings')
-    .insert({
-      session_id: sessionId,
-      lat,
-      lng,
-      message
-    });
-  if (error) throw error;
-
-  // Also update the device's location (helpful for owner)
-  const { data: session } = await supabase
-    .from('lost_sessions')
-    .select('device_id')
-    .eq('id', sessionId)
-    .single();
-
-  if (session) {
-    await supabase
-      .from('devices')
-      .update({ lat, lng, last_updated: new Date() })
-      .eq('id', session.device_id);
-  }
-};
-
-export const ringBuzzer = async (deviceId) => {
-  // In a real app, you'd send a push notification or IoT command.
-  // For now, we just log it or you could store a "ring_request" record.
-  console.log(`Buzzer ringing on device ${deviceId}`);
-  return { success: true };
-};
-
-// ------------------- History -------------------
-export const getHistory = async () => {
-  const { data, error } = await supabase
-    .from('lost_sessions')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
+  await supabase.from('sightings').insert({ session_id: sessionId, lat, lng, message });
 };

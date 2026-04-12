@@ -6,6 +6,7 @@ import * as api from '../services/api';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
 import { toast } from '../components/Toast';
+import { useAuth } from '../context/AuthContext';
 
 const NAIROBI_CENTER = { 
   longitude: 36.8172, 
@@ -15,18 +16,14 @@ const NAIROBI_CENTER = {
 
 export default function MapTracker() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [device, setDevice] = useState(null);
   const [viewState, setViewState] = useState(NAIROBI_CENTER);
   const [error, setError] = useState('');
   const [mapError, setMapError] = useState(false);
   const mapRef = useRef(null);
 
-  useEffect(() => {
-    if (mapRef.current) {
-      setTimeout(() => mapRef.current.resize(), 150);
-    }
-  }, [viewState]);
-
+  // Fetch device + live updates
   useEffect(() => {
     if (!id) {
       setError('Invalid tracker ID');
@@ -42,12 +39,13 @@ export default function MapTracker() {
           setViewState({
             longitude: data.lng,
             latitude: data.lat,
-            zoom: 17, // Precise tracking zoom
+            zoom: 17,
           });
         }
         setError('');
       } catch (err) {
-        setError('Waiting for first location update... Centered on Nairobi.');
+        console.error("Fetch device error:", err);
+        setError('Waiting for first location update...');
       }
     };
 
@@ -55,6 +53,35 @@ export default function MapTracker() {
     const interval = setInterval(fetchDevice, 4000);
     return () => clearInterval(interval);
   }, [id]);
+
+  // Toggle Lost Mode
+  const toggleLostMode = async () => {
+    if (!device) return;
+    try {
+      if (device.status === 'lost') {
+        await api.endLostMode(device.id);
+        toast('Lost Mode ended successfully', 'success');
+      } else {
+        await api.startLostMode(device.id, 24);
+        toast('Lost Mode activated!', 'success');
+      }
+    } catch (err) {
+      console.error("Lost Mode error:", err);
+      toast(err.message || 'Failed to toggle Lost Mode', 'error');
+    }
+  };
+
+  // Ring Buzzer
+  const handleRing = async () => {
+    if (!device) return;
+    try {
+      await api.ringBuzzer(device.id);
+      toast('Buzzer ringing on tracker!', 'success');
+    } catch (err) {
+      console.error("Ring error:", err);
+      toast(err.message || 'Could not ring buzzer', 'error');
+    }
+  };
 
   if (error && !device) {
     return (
@@ -78,15 +105,11 @@ export default function MapTracker() {
     ? {
         version: 8,
         sources: {
-          'osm': {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256
-          }
+          'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 }
         },
         layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
       }
-    : 'mapbox://styles/mapbox/streets-v12'; // Premium aesthetic
+    : 'mapbox://styles/mapbox/streets-v12';
 
   const isLost = device.status === 'lost';
 
@@ -104,10 +127,14 @@ export default function MapTracker() {
       >
         {device.lat && device.lng && (device.lat !== 0 || device.lng !== 0) && (
           <Marker longitude={device.lng} latitude={device.lat}>
-            <div className="relative">
-              {isLost && <div className="absolute -inset-6 rounded-full bg-red-500 opacity-20 animate-ping" />}
-              <div className={`w-11 h-11 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white relative z-10 ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
-                <SafeIcon icon={FiIcons.FiBriefcase} className="text-2xl" />
+            <div className="relative flex items-center justify-center">
+              {isLost && <div className="absolute -inset-8 rounded-full bg-red-500 opacity-30 animate-ping" />}
+              <div
+                className={`w-11 h-11 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white relative z-10 transition-all ${
+                  isLost ? 'bg-red-500 animate-[blink_1.2s_infinite]' : 'bg-brand-500'
+                }`}
+              >
+                <SafeIcon icon={FiIcons.FiBriefcase} className="text-3xl" />
               </div>
             </div>
           </Marker>
@@ -124,13 +151,42 @@ export default function MapTracker() {
         </div>
       </div>
 
-      {/* Bottom status */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur px-5 py-2.5 rounded-3xl shadow-xl text-xs text-gray-700 z-50 flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${isLost ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
-        {device.lat && device.lng && (device.lat !== 0 || device.lng !== 0) 
-          ? 'GPS Live' 
-          : 'Centered on Nairobi • Waiting for tracker update'}
+      {/* Action Buttons */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-2 flex gap-3 z-50">
+        <button
+          onClick={toggleLostMode}
+          className={`px-8 py-4 rounded-3xl font-semibold text-sm flex items-center gap-2 transition-all ${
+            isLost 
+              ? 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' 
+              : 'bg-red-500 text-white'
+          }`}
+        >
+          <SafeIcon icon={FiIcons.FiAlertTriangle} />
+          {isLost ? 'End Lost Mode' : 'Activate Lost Mode'}
+        </button>
+
+        <button
+          onClick={handleRing}
+          className="px-8 py-4 bg-amber-500 text-white rounded-3xl font-semibold text-sm flex items-center gap-2 active:scale-95 transition-all"
+        >
+          <SafeIcon icon={FiIcons.FiBell} />
+          Ring Buzzer
+        </button>
       </div>
+
+      {/* Status */}
+      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-gray-800/95 backdrop-blur px-5 py-2.5 rounded-3xl shadow-xl text-xs text-gray-700 dark:text-gray-300 z-50 flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full ${isLost ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`} />
+        GPS Live
+      </div>
+
+      {/* Blink animation - fixed version */}
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }
