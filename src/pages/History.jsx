@@ -1,3 +1,4 @@
+// src/pages/History.jsx
 import React, { useEffect, useState } from 'react';
 import * as api from '../services/api';
 import * as FiIcons from 'react-icons/fi';
@@ -10,11 +11,11 @@ export default function History() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (loading || !user) return;
+    if (loading || !user) return;   // ← Critical safety guard
 
     const fetchHistory = async () => {
       try {
-        const data = await api.getHistory(user.id);   // ← Now passes owner ID
+        const data = await api.getHistory(user.id);
         setSessions(data);
       } catch (err) {
         console.error(err);
@@ -29,7 +30,7 @@ export default function History() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">History</h1>
       
       {sessions.length === 0 ? (
-        <div className="text-center text-gray-400 mt-20">
+        <div className="text-center text-gray-400 dark:text-gray-500 mt-20">
           <SafeIcon icon={FiIcons.FiClock} className="text-5xl mx-auto mb-4 opacity-20" />
           <p>No past tracking sessions yet</p>
         </div>

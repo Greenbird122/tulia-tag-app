@@ -18,22 +18,22 @@ export default function HelpSupport() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-y-auto pb-24 px-6 pt-12 h-full">
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-24 px-6 pt-12 h-full">
       <div className="flex items-center mb-6">
         <button onClick={() => navigate(-1)} className="mr-4">
-          <SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl text-gray-600" />
+          <SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl text-gray-600 dark:text-gray-400" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Help & Support</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Help & Support</h1>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700 mb-6">
         {faqs.map((item, i) => (
           <details key={i} className="p-5 group">
-            <summary className="flex justify-between items-center font-medium text-gray-900 cursor-pointer">
+            <summary className="flex justify-between items-center font-medium text-gray-900 dark:text-white cursor-pointer">
               {item.q}
               <SafeIcon icon={FiIcons.FiChevronDown} className="text-gray-400 group-open:rotate-180 transition-transform" />
             </summary>
-            <p className="text-sm text-gray-600 mt-3 pl-2">{item.a}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 pl-2">{item.a}</p>
           </details>
         ))}
       </div>
@@ -46,7 +46,7 @@ export default function HelpSupport() {
         Contact Support
       </button>
 
-      <p className="text-center text-gray-400 text-xs mt-6">Tulia Tag v1.0.0</p>
+      <p className="text-center text-gray-400 dark:text-gray-500 text-xs mt-6">Tulia Tag v1.0.0</p>
     </div>
   );
 }

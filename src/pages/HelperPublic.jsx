@@ -1,3 +1,4 @@
+// src/pages/HelperPublic.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import Map, { Marker } from 'react-map-gl';
@@ -6,12 +7,9 @@ import * as api from '../services/api';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
 import { toast } from '../components/Toast';
+import { supabase } from '../lib/supabase';
 
-const NAIROBI_CENTER = { 
-  longitude: 36.8172, 
-  latitude: -1.2864, 
-  zoom: 12 
-};
+const NAIROBI_CENTER = { longitude: 36.8172, latitude: -1.2864, zoom: 12 };
 
 export default function HelperPublic() {
   const { code } = useParams();
@@ -21,19 +19,14 @@ export default function HelperPublic() {
   const [mapError, setMapError] = useState(false);
   const mapRef = useRef(null);
 
-  // Immediate validation
+  // Initial validation
   useEffect(() => {
     if (!code || code === 'undefined') {
       setError('Invalid tracking link.');
     }
   }, [code]);
 
-  useEffect(() => {
-    if (mapRef.current) {
-      setTimeout(() => mapRef.current.resize(), 150);
-    }
-  }, [viewState]);
-
+  // Fetch + Realtime
   useEffect(() => {
     if (!code || code === 'undefined' || error) return;
 
@@ -41,13 +34,8 @@ export default function HelperPublic() {
       try {
         const data = await api.getLostSession(code);
         setSessionData(data);
-
-        if (data.location.lat && data.location.lng) {
-          setViewState({
-            longitude: data.location.lng,
-            latitude: data.location.lat,
-            zoom: 17,
-          });
+        if (data.location?.lat && data.location?.lng) {
+          setViewState({ longitude: data.location.lng, latitude: data.location.lat, zoom: 17 });
         }
         setError('');
       } catch (err) {
@@ -56,8 +44,32 @@ export default function HelperPublic() {
     };
 
     fetchSession();
-    const interval = setInterval(fetchSession, 4000);
-    return () => clearInterval(interval);
+
+    // Realtime subscription on lost_sessions + devices
+    const channel = supabase
+      .channel(`session-${code}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'lost_sessions',
+          filter: `code=eq.${code}`,
+        },
+        async (payload) => {
+          if (payload.new.status !== 'active') return;
+          try {
+            const data = await api.getLostSession(code);
+            setSessionData(data);
+            if (data.location?.lat && data.location?.lng) {
+              setViewState({ longitude: data.location.lng, latitude: data.location.lat, zoom: 17 });
+            }
+          } catch (e) {}
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [code, error]);
 
   const handleSeeBag = () => {
@@ -108,14 +120,10 @@ export default function HelperPublic() {
   const mapStyle = mapError || !import.meta.env.VITE_MAPBOX_TOKEN
     ? {
         version: 8,
-        sources: {
-          'osm': { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 }
-        },
+        sources: { osm: { type: 'raster', tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize: 256 } },
         layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
       }
-    : 'mapbox://styles/mapbox/streets-v12'; // Premium aesthetic
-
-  const isLost = true; // Public page is always for lost items
+    : 'mapbox://styles/mapbox/streets-v12';
 
   return (
     <div className="flex-1 relative h-full w-full bg-gray-100 overflow-hidden">
@@ -139,7 +147,6 @@ export default function HelperPublic() {
         </Marker>
       </Map>
 
-      {/* Header - matches your premium style */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 pt-12 bg-gradient-to-b from-black/70 via-black/40 to-transparent pointer-events-none">
         <div className="flex flex-col items-center">
           <div className="bg-red-500 text-white px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-[1px] shadow-xl mb-2">
@@ -149,33 +156,19 @@ export default function HelperPublic() {
         </div>
       </div>
 
-      {/* Action buttons - bottom sheet style */}
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.15)] p-6 pb-8 space-y-4 z-50">
         <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Are you near the bag?</h3>
         
-        <button 
-          onClick={handleSeeBag}
-          className="w-full bg-brand-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center active:scale-95 transition-all"
-        >
+        <button onClick={handleSeeBag} className="w-full bg-brand-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center active:scale-95 transition-all">
           <SafeIcon icon={FiIcons.FiEye} className="mr-2 text-xl" />
           I SEE THIS BAG
         </button>
 
-        <button 
-          onClick={handleRing}
-          className="w-full bg-gray-100 text-gray-800 py-4 rounded-2xl font-bold text-lg flex items-center justify-center active:scale-95 transition-all"
-        >
+        <button onClick={handleRing} className="w-full bg-gray-100 text-gray-800 py-4 rounded-2xl font-bold text-lg flex items-center justify-center active:scale-95 transition-all">
           <SafeIcon icon={FiIcons.FiBell} className="mr-2 text-xl" />
           RING BUZZER
         </button>
       </div>
-
-      {/* Optional Nairobi fallback note */}
-      {!sessionData.location.lat && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur text-xs text-gray-500 px-4 py-1 rounded-2xl shadow">
-          Centered on Nairobi • Waiting for live update
-        </div>
-      )}
     </div>
   );
 }

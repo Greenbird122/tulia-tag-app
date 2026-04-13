@@ -1,3 +1,4 @@
+// src/components/BottomSheet.jsx
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,13 +19,13 @@ export default function BottomSheet({ isOpen, onClose, children, title }) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="absolute bottom-0 left-0 w-full bg-white rounded-t-3xl z-50 pointer-events-auto shadow-2xl flex flex-col max-h-[90%]"
+            className="absolute bottom-0 left-0 w-full bg-white dark:bg-gray-800 rounded-t-3xl z-50 pointer-events-auto shadow-2xl flex flex-col max-h-[90%]"
           >
             <div className="w-full flex justify-center pt-3 pb-2" onClick={onClose}>
-              <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+              <div className="w-12 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full" />
             </div>
             <div className="px-6 pb-8 pt-2 overflow-y-auto">
-              {title && <h2 className="text-xl font-bold text-gray-900 mb-4">{title}</h2>}
+              {title && <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">{title}</h2>}
               {children}
             </div>
           </motion.div>

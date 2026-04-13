@@ -1,11 +1,31 @@
+// src/pages/Dashboard.jsx
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import * as api from '../services/api';
 import { supabase } from '../lib/supabase';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
 import { formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 50, scale: 0.95 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { type: "spring", stiffness: 100, damping: 14 }
+  }
+};
 
 export default function Dashboard() {
   const [devices, setDevices] = useState([]);
@@ -16,8 +36,12 @@ export default function Dashboard() {
     if (loading || !user) return;
 
     const fetchDevices = async () => {
-      const data = await api.getDevices(user.id);
-      setDevices(data);
+      try {
+        const data = await api.getDevices(user.id);
+        setDevices(data);
+      } catch (err) {
+        console.error(err);
+      }
     };
 
     fetchDevices();
@@ -51,14 +75,21 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="space-y-4">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-4"
+      >
         {devices.map(device => (
-          <div
+          <motion.div
             key={device.id}
+            variants={cardVariants}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => navigate(`/map/${device.id}`)}
             className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50 dark:border-gray-700 cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden"
           >
-            {/* Lost Mode badge */}
             {device.status === 'lost' && (
               <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">
                 LOST MODE
@@ -83,17 +114,21 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
 
         {devices.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12 text-gray-400 dark:text-gray-500"
+          >
             <SafeIcon icon={FiIcons.FiBriefcase} className="text-5xl mx-auto mb-3 opacity-20" />
             <p>No trackers yet</p>
             <p className="text-sm mt-1">Tap + to add your first tracker</p>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

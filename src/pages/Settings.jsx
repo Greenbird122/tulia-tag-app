@@ -1,19 +1,37 @@
-import React from 'react';
+// src/pages/Settings.jsx
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';   // ← NEW
+import { useTheme } from '../context/ThemeContext';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '@/components/SafeIcon';
 import { toast } from '../components/Toast';
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();   // ← NEW
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     toast('You have been logged out', 'success');
+  };
+
+  const handleExitApp = () => {
+    setShowExitModal(true);
+  };
+
+  const handleFinalExit = () => {
+    setShowExitModal(false);
+    setShowFinalConfirm(true);
+    // In a real PWA you could do window.close() or navigate away, but for web we just show message
+    setTimeout(() => {
+      toast("Thank you for using Tulia Tag. We'll miss you!", "success");
+      setShowFinalConfirm(false);
+    }, 1800);
   };
 
   const menuItems = [
@@ -21,13 +39,14 @@ export default function Settings() {
     { icon: FiIcons.FiBell, label: 'Notifications', path: '/notifications' },
     { icon: FiIcons.FiLock, label: 'Privacy & Security', path: '/privacy-security' },
     { icon: FiIcons.FiHelpCircle, label: 'Help & Support', path: '/help-support' },
+    { icon: FiIcons.FiInfo, label: 'About Tulia Tag', path: '/about' },        // ← NEW
   ];
 
   return (
     <div className="flex-1 bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-24 px-6 pt-12 h-full">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Settings</h1>
 
-      {/* DARK MODE TOGGLE */}
+      {/* Dark Mode Toggle */}
       <div className="bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center text-gray-700 dark:text-gray-300">
@@ -36,32 +55,25 @@ export default function Settings() {
           </div>
           <button
             onClick={toggleTheme}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
-              theme === 'dark' ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
+            className={`relative w-12 h-6 rounded-full transition-colors ${theme === 'dark' ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`}
           >
-            <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                theme === 'dark' ? 'translate-x-6' : ''
-              }`}
-            />
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${theme === 'dark' ? 'translate-x-6' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Rest of your settings (profile card + menu) */}
+      {/* Profile Card */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-50 dark:border-gray-700 mb-6 flex items-center space-x-4">
         <div className="w-16 h-16 bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-400 rounded-full flex items-center justify-center text-2xl font-bold">
           {user?.user_metadata?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
         </div>
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-            {user?.user_metadata?.full_name || 'User'}
-          </h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{user?.user_metadata?.full_name || 'User'}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
         </div>
       </div>
 
+      {/* Menu */}
       <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-50 dark:border-gray-700 overflow-hidden mb-6">
         {menuItems.map((item, i) => (
           <button
@@ -77,6 +89,39 @@ export default function Settings() {
           </button>
         ))}
       </div>
+
+      {/* Exit App Button */}
+      <button
+        onClick={handleExitApp}
+        className="w-full bg-white dark:bg-gray-800 text-red-500 font-bold py-4 rounded-2xl shadow-sm border border-gray-50 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-950 transition-colors mb-6"
+      >
+        Exit App
+      </button>
+
+      {/* First Confirmation Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center px-6">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-xs p-8 text-center">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Are you sure you want to exit?</h3>
+            <div className="flex gap-3">
+              <button onClick={() => setShowExitModal(false)} className="flex-1 py-4 bg-gray-100 dark:bg-gray-700 rounded-2xl font-medium">Cancel</button>
+              <button onClick={handleFinalExit} className="flex-1 py-4 bg-red-500 text-white rounded-2xl font-medium">Yes, Exit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Second Emotional Confirmation */}
+      {showFinalConfirm && (
+        <div className="fixed inset-0 bg-black/70 z-[10000] flex items-center justify-center px-6">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-xs p-8 text-center">
+            <SafeIcon icon={FiIcons.FiHeart} className="text-5xl text-red-400 mx-auto mb-6" />
+            <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">We won't be the same without you...</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-8">Tulia Tag was built to keep your things safe. Come back anytime — your trackers will be waiting.</p>
+            <button onClick={() => setShowFinalConfirm(false)} className="w-full py-4 bg-gray-100 dark:bg-gray-700 rounded-2xl font-medium">Stay with us</button>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={handleLogout}

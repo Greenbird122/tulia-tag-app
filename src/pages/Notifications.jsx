@@ -15,9 +15,7 @@ export default function Notifications() {
 
   useEffect(() => {
     const saved = localStorage.getItem('notificationSettings');
-    if (saved) {
-      setSettings(JSON.parse(saved));
-    }
+    if (saved) setSettings(JSON.parse(saved));
   }, []);
 
   const handleToggle = (key) => {
@@ -31,15 +29,15 @@ export default function Notifications() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-y-auto pb-24 px-6 pt-12 h-full">
+    <div className="flex-1 bg-gray-50 dark:bg-gray-900 overflow-y-auto pb-24 px-6 pt-12 h-full">
       <div className="flex items-center mb-6">
         <button onClick={() => navigate(-1)} className="mr-4">
-          <SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl text-gray-600" />
+          <SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl text-gray-600 dark:text-gray-400" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Notifications</h1>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700">
         {[
           { key: 'lostModeAlerts', label: 'Lost Mode Alerts', desc: 'Get notified when Lost Mode is activated' },
           { key: 'helperSightings', label: 'Helper Sightings', desc: 'When someone reports seeing your item' },
@@ -48,20 +46,16 @@ export default function Notifications() {
         ].map((item) => (
           <div key={item.key} className="flex items-center justify-between p-5">
             <div className="flex-1">
-              <h3 className="font-medium text-gray-900">{item.label}</h3>
-              <p className="text-sm text-gray-500">{item.desc}</p>
+              <h3 className="font-medium text-gray-900 dark:text-white">{item.label}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{item.desc}</p>
             </div>
             <button
               onClick={() => handleToggle(item.key)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                settings[item.key] ? 'bg-brand-500' : 'bg-gray-300'
+                settings[item.key] ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  settings[item.key] ? 'translate-x-6' : ''
-                }`}
-              />
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings[item.key] ? 'translate-x-6' : ''}`} />
             </button>
           </div>
         ))}

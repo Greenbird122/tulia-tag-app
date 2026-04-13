@@ -1,3 +1,4 @@
+// src/components/Toast.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -35,7 +36,7 @@ export default function ToastContainer() {
             initial={{ opacity: 0, y: -20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className={`px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white max-w-sm w-full text-center ${t.type === 'error' ? 'bg-red-500' : 'bg-gray-800'}`}
+            className={`px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white max-w-sm w-full text-center ${t.type === 'error' ? 'bg-red-500' : 'bg-gray-800 dark:bg-gray-700'}`}
           >
             {t.message}
           </motion.div>
