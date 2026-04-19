@@ -1,4 +1,3 @@
-// src/components/Toast.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,9 +19,7 @@ export default function ToastContainer() {
     const cleanup = toastEvent.on((message, type) => {
       const id = Date.now();
       setToasts(prev => [...prev, { id, message, type }]);
-      setTimeout(() => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-      }, 3000);
+      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
     });
     return cleanup;
   }, []);
