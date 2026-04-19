@@ -76,7 +76,11 @@ export default function MapTracker() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><SafeIcon icon={FiIcons.FiLoader} className="animate-spin text-5xl text-brand-500" /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <SafeIcon icon={FiIcons.FiLoader} className="animate-spin text-5xl text-brand-500" />
+      </div>
+    );
   }
 
   return (
@@ -98,7 +102,6 @@ export default function MapTracker() {
         )}
       </Map>
 
-      {/* Top Bar */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 pt-12 bg-gradient-to-b from-black/70 to-transparent">
         <div className="flex justify-between items-center text-white">
           <button onClick={() => navigate(-1)}><SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl" /></button>
@@ -112,7 +115,6 @@ export default function MapTracker() {
         </div>
       </div>
 
-      {/* Action Buttons */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-50">
         <button
           onClick={toggleLostMode}
