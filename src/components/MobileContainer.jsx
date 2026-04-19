@@ -1,4 +1,3 @@
-// src/components/MobileContainer.jsx
 import React from 'react';
 
 export default function MobileContainer({ children }) {
