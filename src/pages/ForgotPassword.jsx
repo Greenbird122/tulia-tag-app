@@ -1,135 +1,98 @@
-// src/pages/MapTracker.jsx
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import Map, { Marker } from 'react-map-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import * as api from '../services/api';
-import * as FiIcons from 'react-icons/fi';
-import SafeIcon from '@/components/SafeIcon';
-import { toast } from '../components/Toast';
+// src/pages/ForgotPassword.jsx
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { motion } from 'framer-motion';
+import { toast } from '../components/Toast';
 
-const NAIROBI_CENTER = { longitude: 36.8172, latitude: -1.2864, zoom: 12 };
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isSent, setIsSent] = useState(false);
 
-export default function MapTracker() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [device, setDevice] = useState(null);
-  const [viewState, setViewState] = useState(NAIROBI_CENTER);
-  const [loading, setLoading] = useState(true);
-  const [mapError, setMapError] = useState(false);
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    
+    if (!email) {
+      toast('Please enter your email address', 'error');
+      return;
+    }
 
-  useEffect(() => {
-    const fetchDevice = async () => {
-      try {
-        const data = await api.getDeviceLocation(id);
-        setDevice(data);
-        if (data?.lat && data?.lng) {
-          setViewState({ longitude: data.lng, latitude: data.lat, zoom: 17 });
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/update-password`,
+      });
+
+      if (error) {
+        toast(error.message || 'Failed to send reset link', 'error');
+        return;
       }
-    };
 
-    fetchDevice();
-
-    const channel = supabase.channel(`device-${id}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'devices', 
-        filter: `id=eq.${id}` 
-      }, (payload) => {
-        setDevice(payload.new);
-        if (payload.new.lat && payload.new.lng) {
-          setViewState({ longitude: payload.new.lng, latitude: payload.new.lat, zoom: 17 });
-        }
-      })
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, [id]);
-
-  const isLost = device?.status === 'lost';
-
-  const toggleLostMode = async () => {
-    try {
-      const newStatus = isLost ? 'safe' : 'lost';
-      await api.toggleLostMode(id, newStatus);
-      toast(isLost ? 'Lost Mode deactivated' : 'Lost Mode activated!', 'success');
-    } catch (err) {
-      toast('Failed to update status', 'error');
+      setIsSent(true);
+      toast('Password reset link sent! Check your email.', 'success');
+    } catch (error) {
+      toast('Something went wrong. Please try again later.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const ringBuzzer = async () => {
-    try {
-      await api.ringBuzzer(id);
-      toast('📳 Buzzer ringing on device!', 'success');
-    } catch (err) {
-      toast('Failed to ring buzzer', 'error');
-    }
-  };
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><SafeIcon icon={FiIcons.FiLoader} className="animate-spin text-5xl text-brand-500" /></div>;
+  if (isSent) {
+    return (
+      <div className="flex-1 bg-white dark:bg-gray-900 flex flex-col justify-center px-8 text-center min-h-screen">
+        <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 7.89a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Check Your Email</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-8">
+          We've sent a password reset link to <strong>{email}</strong>.
+        </p>
+        <Link to="/login" className="text-brand-500 font-medium hover:underline">
+          Back to Login
+        </Link>
+      </div>
+    );
   }
 
   return (
-    <div className="relative h-screen w-full bg-gray-100 dark:bg-gray-950 overflow-hidden">
-      <Map
-        {...viewState}
-        onMove={e => setViewState(e.viewState)}
-        mapStyle={mapError ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png' : 'mapbox://styles/mapbox/streets-v12'}
-        mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
-        onError={() => setMapError(true)}
-        style={{ width: '100%', height: '100%' }}
-      >
-        {device?.lat && device?.lng && (
-          <Marker longitude={device.lng} latitude={device.lat}>
-            <div className={`w-12 h-12 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
-              <SafeIcon icon={FiIcons.FiBriefcase} className="text-3xl" />
-            </div>
-          </Marker>
-        )}
-      </Map>
-
-      {/* Top Bar */}
-      <div className="absolute top-0 left-0 right-0 z-50 p-6 pt-12 bg-gradient-to-b from-black/70 to-transparent">
-        <div className="flex justify-between items-center text-white">
-          <button onClick={() => navigate(-1)}><SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl" /></button>
-          <div className="text-center">
-            <div className={`px-4 py-1 rounded-full text-xs font-bold uppercase ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
-              {isLost ? 'LOST MODE' : 'LIVE'}
-            </div>
-            <p className="font-semibold">{device?.name}</p>
-          </div>
-          <div className="w-8" />
+    <div className="flex-1 bg-white dark:bg-gray-900 flex flex-col justify-center px-8 min-h-screen">
+      <div className="mb-12">
+        <div className="w-12 h-12 bg-brand-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </svg>
         </div>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reset Password</h1>
+        <p className="text-gray-500 dark:text-gray-400">We'll send you a link to reset your password.</p>
       </div>
 
-      {/* Action Buttons */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-50">
-        <button
-          onClick={toggleLostMode}
-          className={`px-6 py-3 rounded-2xl font-semibold shadow-lg flex items-center gap-2 ${isLost ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
-        >
-          <SafeIcon icon={FiIcons.FiAlertTriangle} />
-          {isLost ? 'End Lost Mode' : 'Activate Lost Mode'}
-        </button>
+      <form onSubmit={handleResetRequest} className="space-y-6">
+        <div>
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2 block">Email Address</label>
+          <input
+            type="email"
+            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
 
         <button
-          onClick={ringBuzzer}
-          className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-semibold shadow-lg flex items-center gap-2"
+          type="submit"
+          disabled={loading}
+          className="w-full bg-brand-500 text-white py-4 rounded-xl font-semibold text-lg shadow-lg disabled:opacity-50"
         >
-          <SafeIcon icon={FiIcons.FiBell} />
-          Ring Buzzer
+          {loading ? 'Sending...' : 'Send Reset Link'}
         </button>
-      </div>
+
+        <Link to="/login" className="block text-center text-brand-500 text-sm font-medium hover:underline">
+          Back to Login
+        </Link>
+      </form>
     </div>
   );
 }
