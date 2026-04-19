@@ -1,3 +1,4 @@
+// src/App.jsx
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -10,6 +11,7 @@ import SplashScreen from './components/SplashScreen';
 import SafeIcon from './components/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
 
+// Pages
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MapTracker from './pages/MapTracker';
@@ -30,7 +32,7 @@ const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <SafeIcon icon={FiIcons.FiLoader} className="animate-spin text-4xl text-brand-500" />
       </div>
     );
@@ -40,10 +42,10 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const MainLayout = ({ children }) => (
-  <>
+  <div className="flex flex-col min-h-screen">
     {children}
     <BottomNav />
-  </>
+  </div>
 );
 
 function AppContent() {
@@ -64,10 +66,25 @@ function AppContent() {
         <Route path="/track/:code" element={<HelperPublic />} />
         <Route path="/about" element={<About />} />
 
-        <Route path="/" element={<ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>} />
+        {/* Protected Routes */}
+        <Route path="/" element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Dashboard />
+            </MainLayout>
+          </ProtectedRoute>
+        } />
         <Route path="/map/:id" element={<ProtectedRoute><MapTracker /></ProtectedRoute>} />
-        <Route path="/history" element={<ProtectedRoute><MainLayout><History /></MainLayout></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><MainLayout><Settings /></MainLayout></ProtectedRoute>} />
+        <Route path="/history" element={
+          <ProtectedRoute>
+            <MainLayout><History /></MainLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <MainLayout><Settings /></MainLayout>
+          </ProtectedRoute>
+        } />
         <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/privacy-security" element={<ProtectedRoute><PrivacySecurity /></ProtectedRoute>} />
