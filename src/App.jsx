@@ -69,21 +69,15 @@ function AppContent() {
         {/* Protected Routes */}
         <Route path="/" element={
           <ProtectedRoute>
-            <MainLayout>
-              <Dashboard />
-            </MainLayout>
+            <MainLayout><Dashboard /></MainLayout>
           </ProtectedRoute>
         } />
         <Route path="/map/:id" element={<ProtectedRoute><MapTracker /></ProtectedRoute>} />
         <Route path="/history" element={
-          <ProtectedRoute>
-            <MainLayout><History /></MainLayout>
-          </ProtectedRoute>
+          <ProtectedRoute><MainLayout><History /></MainLayout></ProtectedRoute>
         } />
         <Route path="/settings" element={
-          <ProtectedRoute>
-            <MainLayout><Settings /></MainLayout>
-          </ProtectedRoute>
+          <ProtectedRoute><MainLayout><Settings /></MainLayout></ProtectedRoute>
         } />
         <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
