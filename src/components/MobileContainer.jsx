@@ -1,8 +1,9 @@
+// src/components/MobileContainer.jsx
 import React from 'react';
 
 export default function MobileContainer({ children }) {
   return (
-    <div className="bg-white dark:bg-gray-900 w-full max-w-[420px] h-[100dvh] sm:h-[850px] sm:rounded-[40px] sm:shadow-2xl relative overflow-hidden flex flex-col font-sans">
+    <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
       {children}
     </div>
   );
