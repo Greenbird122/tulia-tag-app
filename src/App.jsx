@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -27,6 +27,34 @@ import ForgotPassword from './pages/ForgotPassword';
 import UpdatePassword from './pages/UpdatePassword';
 import ErrorPage from './pages/ErrorPage';
 import About from './pages/About';
+
+const BackButtonHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const handleBackButton = (event) => {
+      if (location.pathname === '/login') return;
+
+      event.preventDefault();
+
+      if (location.pathname.startsWith('/map/')) {
+        navigate('/', { replace: true });
+      } else if (location.pathname !== '/') {
+        navigate(-1);
+      } else {
+        if (window.confirm("Are you sure you want to exit Tulia Tag?")) {
+          window.close();
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handleBackButton);
+    return () => window.removeEventListener('popstate', handleBackButton);
+  }, [location, navigate]);
+
+  return null;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -58,6 +86,7 @@ function AppContent() {
   return (
     <MobileContainer>
       <ToastContainer />
+      <BackButtonHandler />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -66,7 +95,6 @@ function AppContent() {
         <Route path="/track/:code" element={<HelperPublic />} />
         <Route path="/about" element={<About />} />
 
-        {/* Protected Routes */}
         <Route path="/" element={
           <ProtectedRoute>
             <MainLayout><Dashboard /></MainLayout>

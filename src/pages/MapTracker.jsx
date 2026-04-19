@@ -30,6 +30,7 @@ export default function MapTracker() {
         }
       } catch (err) {
         console.error(err);
+        toast('Failed to load tracker location', 'error');
       } finally {
         setLoading(false);
       }
@@ -37,6 +38,7 @@ export default function MapTracker() {
 
     fetchDevice();
 
+    // Real-time updates
     const channel = supabase.channel(`device-${id}`)
       .on('postgres_changes', { 
         event: '*', 
@@ -62,14 +64,14 @@ export default function MapTracker() {
       await api.toggleLostMode(id, newStatus);
       toast(isLost ? 'Lost Mode deactivated' : 'Lost Mode activated!', 'success');
     } catch (err) {
-      toast('Failed to update status', 'error');
+      toast('Failed to update Lost Mode', 'error');
     }
   };
 
   const ringBuzzer = async () => {
     try {
       await api.ringBuzzer(id);
-      toast('📳 Buzzer ringing on device!', 'success');
+      toast('📳 Buzzer ringing on the device!', 'success');
     } catch (err) {
       toast('Failed to ring buzzer', 'error');
     }
@@ -95,30 +97,35 @@ export default function MapTracker() {
       >
         {device?.lat && device?.lng && (
           <Marker longitude={device.lng} latitude={device.lat}>
-            <div className={`w-12 h-12 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
+            <div className={`w-12 h-12 rounded-2xl border-4 border-white shadow-2xl flex items-center justify-center text-white relative ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
               <SafeIcon icon={FiIcons.FiBriefcase} className="text-3xl" />
+              {isLost && <div className="absolute -inset-6 rounded-full bg-red-500 opacity-30 animate-ping" />}
             </div>
           </Marker>
         )}
       </Map>
 
+      {/* Top Status Bar */}
       <div className="absolute top-0 left-0 right-0 z-50 p-6 pt-12 bg-gradient-to-b from-black/70 to-transparent">
         <div className="flex justify-between items-center text-white">
-          <button onClick={() => navigate(-1)}><SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl" /></button>
+          <button onClick={() => navigate(-1)}>
+            <SafeIcon icon={FiIcons.FiArrowLeft} className="text-2xl" />
+          </button>
           <div className="text-center">
-            <div className={`px-4 py-1 rounded-full text-xs font-bold uppercase ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
-              {isLost ? 'LOST MODE' : 'LIVE'}
+            <div className={`inline-block px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${isLost ? 'bg-red-500' : 'bg-brand-500'}`}>
+              {isLost ? 'LOST MODE ACTIVE' : 'LIVE TRACKING'}
             </div>
-            <p className="font-semibold">{device?.name}</p>
+            <p className="font-semibold mt-1">{device?.name || 'Unknown Device'}</p>
           </div>
           <div className="w-8" />
         </div>
       </div>
 
+      {/* Action Buttons */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-50">
         <button
           onClick={toggleLostMode}
-          className={`px-6 py-3 rounded-2xl font-semibold shadow-lg flex items-center gap-2 ${isLost ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
+          className={`px-6 py-3 rounded-2xl font-semibold shadow-lg flex items-center gap-2 transition-all active:scale-95 ${isLost ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white'}`}
         >
           <SafeIcon icon={FiIcons.FiAlertTriangle} />
           {isLost ? 'End Lost Mode' : 'Activate Lost Mode'}
@@ -126,7 +133,7 @@ export default function MapTracker() {
 
         <button
           onClick={ringBuzzer}
-          className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-semibold shadow-lg flex items-center gap-2"
+          className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-semibold shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
           <SafeIcon icon={FiIcons.FiBell} />
           Ring Buzzer
